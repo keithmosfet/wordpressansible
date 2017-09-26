@@ -1,0 +1,58 @@
+---
+- hosts: ubuntu-test-server 
+  remote_user: mkeith
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: 1. install Apache
+      apt: name=apache2 state=present
+
+    - name: 2. install PHP module for Apache
+      apt: name=libapache2-mod-php5 state=present
+
+    - name: 3. start Apache
+      service: name=apache2 state=running enabled=yes
+
+    - name: 4. Install MariaDB server package
+      apt: name=mariadb-server state=present
+
+    - name: 5. Start Mysql Service
+      service: name=mysql state=started enabled=true
+
+    - name: 6. Install python Mysql package #required for mysql_db tasks
+      apt: name=python-mysqldb state=present
+  
+    - name: Create mysql database
+      mysql_db: name=wordpress state=present
+
+    - name: Create mysql user
+      mysql_user: name=wordpress  password=demo priv=*.*:ALL
+ 
+    - name: 10. Install MySQL extension for PHP
+      apt: name=php5-mysql state=present
+
+    - name: 11. Download WordPress  
+      get_url: url=https://wordpress.org/latest.tar.gz dest=/tmp/wordpress.tar.gz validate_certs=no 
+      sudo: yes
+
+    - name: 12. Extract WordPress  
+      unarchive: src=/tmp/wordpress.tar.gz dest=/var/www/ copy=no 
+      sudo: yes
+
+    - name: 13. Update default Apache site
+      sudo: yes
+      lineinfile: dest=/etc/apache2/sites-enabled/000-default.conf regexp="(.)+DocumentRoot /var/www/html" line="DocumentRoot /var/www/wordpress"
+
+    - name: 14. Restarting apache
+      service: name=apache2 state=restarted
+
+    - name: 15. Copy sample config file
+      command: mv /var/www/wordpress/wp-config-sample.php /var/www/wordpress/wp-config.php creates=/var/www/wordpress/wp-config.php
+
+#    - name: 16. Update WordPress config file
+#      lineinfile: dest=/var/www/wordpress/wp-config.php 
+#      regexp={{ item.regexp }} 
+#with_items: 
+#      - {'regexp': "define\\('DB_NAME', '(.)+'\\);", 'item.line': "define('DB_NAME', '{{wp_mysql_db}}');"} 
+#      - {'regexp': "define\\('DB_USER', '(.)+'\\);", 'item.line': "define('DB_USER', '{{wp_mysql_user}}');"}
+#      - {'regexp': "define\\('DB_PASSWORD', '(.)+'\\);", 'item.line': "define('DB_PASSWORD', '{{wp_mysql_password}}');"}
